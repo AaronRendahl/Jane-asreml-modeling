@@ -1,57 +1,44 @@
-phenotype_levels<-c("O_0i", "O_15i", "O_30i", "O_60i", "O_75i", "O_90i", "O_120i", "O_150i", "O_180i", "O_0g", "O_15g", "O_30g", "O_60g", "O_75g", "O_90g", "O_120g", "O_150g", "O_180g")
-df<-d[,c('ID', 'Breed', 'Age', 'Sex', 'EMS', 'Owner', 'AIRg', 'BCS', 'DI', 'SG', 'SI', 'TBFM', '%BF', 'Leptin', 'Adiponectin', 'NEFA', 'TG', 'Fat area', phenotype levels)]
-df2<-reshape(df, idvar='ID', timevar='time',direction='long',
-varying=colnames(df)[(which(colnames(df)=='O_0i')):which(colnames(df)=='O-180g')], 
-sep='_'
-rownames(df2)<-c(1:nrow(df2))
-df2$ID<-as.factor(df2$ID)
-
+OST_R_asreml_NS_hr <- read.csv("OST_R_asreml_NS_hr.csv", check.names=FALSE)
 
 m1 <- asreml(glucose ~ time + time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)) + ~Owner, rcov=~units, maxit=400,  Cfixed=TRUE)
-
-
 m1 <- asreml(glucose ~ time + time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)))
 
+## previous output
+## glucose works with farm random intercept and breed fixed effect
+#
+# > m1 <- asreml(glucose ~ hour + hour2 + Breed + Breed:hour + Breed:hour2, data=df2, random=~str(~Number_ID + hour:Number_ID + hour2:Number_ID, ~us(3):id(Number_ID)) + ~Owner, rcov=~units, maxit=400,  Cfixed=TRUE)
+# ASReml: Mon Oct 31 17:37:13 2016
+# 
+#  US matrix updates modified 1 times to remain positive definite.
+#      LogLik         S2      DF      wall     cpu
+#   -2206.1541     95.3231   723  17:37:13     0.0 (6 restrained)
+#   -2151.5520     94.8190   723  17:37:13     0.0 (3 restrained)
+#  US matrix updates modified 1 times to remain positive definite.
+#   -2142.4206     90.3250   723  17:37:13     0.0 (4 restrained)
+#  US matrix updates modified 1 times to remain positive definite.
+#   -2127.6595     87.2655   723  17:37:13     0.0 (6 restrained)
+#  US matrix updates modified 1 times to remain positive definite.
+#   -2116.6919     83.3261   723  17:37:13     0.0 (6 restrained)
+#  US matrix updates modified 1 times to remain positive definite.
+#   -2107.3980     79.8055   723  17:37:13     0.0 (6 restrained)
+#  US matrix updates modified 1 times to remain positive definite.
+#   -2099.4692     76.5959   723  17:37:13     0.0 (6 restrained)
+#  US matrix updates modified 1 times to remain positive definite.
+#   -2092.5992     73.8339   723  17:37:13     0.0 (6 restrained)
+#   -2086.6355     71.4900   723  17:37:13     0.0 (1 restrained)
+#   -2063.4866     63.8633   723  17:37:13     0.0
+#   -2048.7861     61.2144   723  17:37:13     0.0
+#   -2044.8604     57.7331   723  17:37:13     0.0
+#   -2044.5356     56.9646   723  17:37:13     0.0
+#   -2044.5296     56.8785   723  17:37:13     0.0
+#   -2044.5294     56.8769   723  17:37:13     0.0
+#   -2044.5293     56.8768   723  17:37:13     0.0
+# US variance structures were modified in 7 instances to make them positive definite
+# 
+# Finished on: Mon Oct 31 17:37:13 2016
+#  
+# LogLikelihood Converged 
 
-df2 <- read.csv("C:/PhD Research/OST/OST breed/OST_R_asreml_NS.csv")
->   View(df2)
-
-
-##glucose works with farm random intercept and breed fixed effect
-
- m1 <- asreml(glucose ~ hour + hour2 + Breed + Breed:hour + Breed:hour2, data=df2, random=~str(~Number_ID + hour:Number_ID + hour2:Number_ID, ~us(3):id(Number_ID)) + ~Owner, rcov=~units, maxit=400,  Cfixed=TRUE)
-ASReml: Mon Oct 31 17:37:13 2016
-
- US matrix updates modified 1 times to remain positive definite.
-     LogLik         S2      DF      wall     cpu
-  -2206.1541     95.3231   723  17:37:13     0.0 (6 restrained)
-  -2151.5520     94.8190   723  17:37:13     0.0 (3 restrained)
- US matrix updates modified 1 times to remain positive definite.
-  -2142.4206     90.3250   723  17:37:13     0.0 (4 restrained)
- US matrix updates modified 1 times to remain positive definite.
-  -2127.6595     87.2655   723  17:37:13     0.0 (6 restrained)
- US matrix updates modified 1 times to remain positive definite.
-  -2116.6919     83.3261   723  17:37:13     0.0 (6 restrained)
- US matrix updates modified 1 times to remain positive definite.
-  -2107.3980     79.8055   723  17:37:13     0.0 (6 restrained)
- US matrix updates modified 1 times to remain positive definite.
-  -2099.4692     76.5959   723  17:37:13     0.0 (6 restrained)
- US matrix updates modified 1 times to remain positive definite.
-  -2092.5992     73.8339   723  17:37:13     0.0 (6 restrained)
-  -2086.6355     71.4900   723  17:37:13     0.0 (1 restrained)
-  -2063.4866     63.8633   723  17:37:13     0.0
-  -2048.7861     61.2144   723  17:37:13     0.0
-  -2044.8604     57.7331   723  17:37:13     0.0
-  -2044.5356     56.9646   723  17:37:13     0.0
-  -2044.5296     56.8785   723  17:37:13     0.0
-  -2044.5294     56.8769   723  17:37:13     0.0
-  -2044.5293     56.8768   723  17:37:13     0.0
-US variance structures were modified in 7 instances to make them positive definite
-
-Finished on: Mon Oct 31 17:37:13 2016
- 
-LogLikelihood Converged 
-> 
 
 
 m1 <- asreml(logINS ~ hour + hour2 + Breed + Breed:hour + Breed:hour2, data=df2, random=~str(~Number_ID + hour:Number_ID + hour2:Number_ID, ~us(3):id(Number_ID)) , rcov=~units, maxit=400,  Cfixed=TRUE)
