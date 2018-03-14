@@ -1,0 +1,41 @@
+---
+title: "asreml results for Jane Manfredi"
+author: "Aaron Rendahl, PhD"
+date: "March 14, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(dplyr)
+library(ggplot2)
+```
+
+Results from Rob's computer, using R version 3.3.1 (2016-06-21) and asreml 3.0.
+
+### Wald tests
+```{r}
+w <- read.csv("results-wald.csv", as.is=TRUE)
+w %>% kable(digits=c(0,0,2,0,4))
+```
+
+### plots
+```{r}
+d <- read.csv("results-fit.csv", as.is=TRUE)
+ds <- split(d, d[,c("response", "var")])
+
+for(i in seq_along(ds)) {
+  foo <- as.numeric(as.character(ds[[i]]$level))
+  if(!any(is.na(foo))) ds[[i]]$level <- paste(round(foo,2))
+}
+
+for(i in seq_along(ds)) {
+  p <- ggplot(ds[[i]]) + aes(time, predicted.value, group=level, color=level) + 
+    geom_line() +
+    geom_line(aes(y=predicted.value+standard.error), lty=2) +
+    geom_line(aes(y=predicted.value-standard.error), lty=2) +
+    ggtitle(names(ds)[i])
+  plot(p)
+}
+```
