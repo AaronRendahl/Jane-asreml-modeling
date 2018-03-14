@@ -79,3 +79,57 @@ ins2 <- lapply(vars, function(v) {
   list(model=mm, coef=getcoefp(mm), Wald=WaldChi2(mm, v), fit=getfit(mm, v))
 })
 
+## combine together for output
+g <- setNames(c(list(glu1), glu2), c("time_only", vars))
+i <- setNames(c(list(ins1), ins2), c("time_only", vars))
+saveRDS(g, "results_glucose.RDS")
+saveRDS(i, "results_insulin.RDS")
+
+## and make some csv files
+g.wald <- do.call(rbind, lapply(g, function(x) data.frame(var=rownames(x$Wald), x$Wald, stringsAsFactors=FALSE)))
+i.wald <- do.call(rbind, lapply(i, function(x) data.frame(var=rownames(x$Wald), x$Wald, stringsAsFactors=FALSE)))
+
+g.coef <- do.call(rbind, lapply(names(g), function(n) {
+  out <- cbind(var=n, term=rownames(g[[n]]$coef), as.data.frame(g[[n]]$coef), stringsAsFactors=FALSE)
+  rownames(out) <- NULL
+  out
+}))
+
+i.coef <- do.call(rbind, lapply(names(i), function(n) {
+  out <- cbind(var=n, term=rownames(i[[n]]$coef), as.data.frame(i[[n]]$coef), stringsAsFactors=FALSE)
+  rownames(out) <- NULL
+  out
+}))
+
+g.fit <- do.call(rbind, lapply(names(g), function(n) {
+  tmp <- as.data.frame(g[[n]]$fit)
+  if(ncol(tmp)==4) { tmp <- data.frame(tmp[,1,drop=FALSE], X=NA, tmp[,2:4]) }
+  stopifnot(ncol(tmp)==5)
+  names(tmp)[2] <- "level"
+  cbind(var=n, tmp, stringsAsFactors=FALSE)
+}))
+
+i.fit <- do.call(rbind, lapply(names(i), function(n) {
+  tmp <- as.data.frame(i[[n]]$fit)
+  if(ncol(tmp)==4) { tmp <- data.frame(tmp[,1,drop=FALSE], X=NA, tmp[,2:4]) }
+  stopifnot(ncol(tmp)==5)
+  names(tmp)[2] <- "level"
+  cbind(var=n, tmp, stringsAsFactors=FALSE)
+}))
+
+## combine together glucose and insulin into one file
+cc <- function(x) {
+  out <- do.call(rbind, lapply(names(x), function(n) {
+    cbind(response=n, x[[n]], stringsAsFactors=FALSE)
+  }))
+  rownames(out) <- NULL
+  out
+}
+
+all.wald <- cc(list(glucose=g.wald, insulin=i.wald))
+all.coef <- cc(list(glucose=g.coef, insulin=i.coef))
+all.fit <- cc(list(glucose=g.fit, insulin=i.fit))
+
+write.csv(all.wald, "results-wald.csv", na="", row.names=FALSE)
+write.csv(all.coef, "results-coef.csv", na="", row.names=FALSE)
+write.csv(all.fit, "results-fit.csv", na="", row.names=FALSE)
