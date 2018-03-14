@@ -1,0 +1,769 @@
+
+R version 3.3.1 (2016-06-21) -- "Bug in Your Hair"
+Copyright (C) 2016 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(asreml)
+Loading required package: lattice
+Checking for license in  /project/mccuelab/ 
+Licensed to: University of Minnesota Equine Genetics and Genomics Lab
+Serial Number: 402061962 Expires: 30-sep-2018 (200 days)
+
+> library(aod)
+> 
+> ## get coefficients and p-values
+> getcoefp <- function(model) {
++   x <- as.data.frame(summary(model, all=TRUE)$coef.fi)
++   #x <- x[rev(seq_len(nrow(x))),]
++   pval <- as.vector(unname(2*pnorm(-abs(x[,'z ratio']))))
++   out <- cbind(x, pval)
++   out[!is.na(out[,2]),]
++ }
+> 
+> ## overall Wald chi square test of a given effect on entire trajectory
+> WaldChi2 <- function(model, var) {
++   covariance_matrix <- diag(length(model$coefficients$fixed))
++   covariance_matrix[upper.tri(covariance_matrix, diag=TRUE)] <- model$Cfixed
++   covariance_matrix[lower.tri(covariance_matrix)] <- t(covariance_matrix)[lower.tri(t(covariance_matrix))]
++   colnames(covariance_matrix) <- rownames(covariance_matrix) <- names(model$coefficients$fixed)
++   use <- grep(var, rownames(covariance_matrix))
++   terms <- use[rowSums(covariance_matrix[use,])!=0]
++   out <- wald.test(b = model$coefficients$fixed[terms], 
++             Sigma = covariance_matrix[terms, terms], 
++             Terms = 1:length(terms))$result$chi2
++   out <- rbind(out)
++   rownames(out) <- var
++   out
++ }
+> 
+> ## get fitted values for a given model
+> getfit <- function(model, var, data=OST_R_asreml_NS_hr) {
++   if(missing(var)) {
++     predict(model, classify="time")$predictions$pvals
++   } else {
++     if(is.numeric(data[[var]])) {
++       m <- mean(data[[var]], na.rm=TRUE)
++       s <- sd(data[[var]], na.rm=TRUE)
++       levs <- setNames(list(c(m, m+s)), var)
++       predict(model, classify=paste0("time:", var), levels=levs)$predictions$pvals
++     } else {
++       predict(model, classify=paste0("time:", var))$predictions$pvals
++     }
++   }
++ }
+> 
+> 
+> #########################################################################################
+> message("Using ", R.version.string, " and asreml ", packageVersion("asreml"), ".")
+Using R version 3.3.1 (2016-06-21) and asreml 3.0.
+> 
+> OST_R_asreml_NS_hr <- read.csv("OST_R_asreml_NS_hr.csv", check.names=FALSE)
+> OST_R_asreml_NS_hr$Number_ID <- factor(OST_R_asreml_NS_hr$Number_ID)
+> OST_R_asreml_NS_hr$logINS <- log(OST_R_asreml_NS_hr$insulin)
+> OST_R_asreml_NS_hr$time <- OST_R_asreml_NS_hr$time*60
+> OST_R_asreml_NS_hr$time2 <- NULL
+> OST_R_asreml_NS_hr$EMS <- substring(OST_R_asreml_NS_hr$EMS, 1, 1)
+> OST_R_asreml_NS_hr$TBFM <- as.numeric(as.character(OST_R_asreml_NS_hr$TBFM))
+Warning message:
+NAs introduced by coercion 
+> 
+> ## these are the covariates we'll add
+> vars <- c("SEX", "AGE", "Breed", "Adiponectin", "TG", "NEFA", "Leptin", "TBFM", "SI", "AIRg", "EMS")
+> 
+> ## primary models
+> glu <- asreml(glucose ~ pol(time,-2), data=OST_R_asreml_NS_hr, 
++                random=~str(~Number_ID:pol(time,2), ~us(3):id(Number_ID)), 
++                rcov=~units, maxit=400, Cfixed=TRUE)
+ASReml: Wed Mar 14 17:06:19 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2328.9722    172.8830   735  17:06:19     0.0
+  -2260.6063    124.6574   735  17:06:19     0.0
+  -2194.4442     85.3545   735  17:06:19     0.0
+  -2161.0266     63.3956   735  17:06:19     0.0
+  -2157.3155     57.9139   735  17:06:19     0.0
+  -2157.1577     57.0441   735  17:06:19     0.0
+  -2157.1481     57.0021   735  17:06:19     0.0
+  -2157.1468     57.0009   735  17:06:19     0.0
+  -2157.1467     57.0010   735  17:06:19     0.0
+  -2157.1467     57.0011   735  17:06:19     0.0
+
+Finished on: Wed Mar 14 17:06:19 2018
+ 
+LogLikelihood Converged 
+> 
+> ins <- asreml(logINS ~ pol(time,-2), data=OST_R_asreml_NS_hr, 
++               random=~str(~Number_ID:pol(time,2), ~us(3):id(Number_ID)), 
++               rcov=~units, maxit=400, Cfixed=TRUE)
+ASReml: Wed Mar 14 17:06:19 2018
+
+     LogLik         S2      DF      wall     cpu
+   -319.0581      0.7287   735  17:06:19     0.0
+   -155.0071      0.3757   735  17:06:19     0.0
+    -40.1081      0.2163   735  17:06:19     0.0
+     12.2796      0.1544   735  17:06:19     0.0 (1 restrained)
+     22.7837      0.1435   735  17:06:19     0.0
+     26.0562      0.1379   735  17:06:19     0.0
+     26.3071      0.1364   735  17:06:19     0.0
+     26.3108      0.1362   735  17:06:19     0.0
+     26.3108      0.1362   735  17:06:19     0.0
+     26.3108      0.1362   735  17:06:19     0.0
+
+Finished on: Wed Mar 14 17:06:19 2018
+ 
+LogLikelihood Converged 
+> 
+> ## get coefficients and p-values
+> glu1 <- list(model=glu, coef=getcoefp(glu), fit=getfit(glu))
+ASReml: Wed Mar 14 17:06:19 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2157.1467     57.0011   735  17:06:19     0.0
+  -2157.1467     57.0011   735  17:06:19     0.0
+  -2157.1467     57.0011   735  17:06:19     0.0
+  -2157.1467     57.0011   735  17:06:19     0.0
+
+Finished on: Wed Mar 14 17:06:19 2018
+ 
+LogLikelihood Converged 
+> ins1 <- list(model=ins, coef=getcoefp(ins), fit=getfit(ins))
+ASReml: Wed Mar 14 17:06:19 2018
+
+     LogLik         S2      DF      wall     cpu
+     26.3108      0.1362   735  17:06:19     0.0
+     26.3108      0.1362   735  17:06:19     0.0
+     26.3108      0.1362   735  17:06:19     0.0
+     26.3108      0.1362   735  17:06:19     0.0
+
+Finished on: Wed Mar 14 17:06:19 2018
+ 
+LogLikelihood Converged 
+> 
+> ## add covariates one by one, and save all results
+> glu2 <- lapply(vars, function(v) {
++   mm <- update(glu, as.formula(sprintf("~ . + %s * pol(time, 2)", v)), 
++                data=OST_R_asreml_NS_hr[!is.na(OST_R_asreml_NS_hr[[v]]),])
++   list(model=mm, coef=getcoefp(mm), Wald=WaldChi2(mm, v), fit=getfit(mm, v))
++ })
+ASReml: Wed Mar 14 17:06:20 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2152.9435     57.0277   732  17:06:20     0.0
+  -2152.9205     57.0215   732  17:06:20     0.0
+  -2152.9031     57.0136   732  17:06:20     0.0
+  -2152.8977     57.0050   732  17:06:20     0.0
+  -2152.8975     57.0032   732  17:06:20     0.0
+  -2152.8975     57.0030   732  17:06:20     0.0
+
+Finished on: Wed Mar 14 17:06:20 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:20 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2152.8975     57.0029   732  17:06:20     0.0
+  -2152.8975     57.0029   732  17:06:20     0.0
+  -2152.8975     57.0029   732  17:06:20     0.0
+  -2152.8975     57.0029   732  17:06:20     0.0
+
+Finished on: Wed Mar 14 17:06:20 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:20 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2159.5669     56.8428   732  17:06:20     0.0
+  -2159.3829     56.9085   732  17:06:20     0.0
+  -2159.2082     56.9892   732  17:06:20     0.0
+  -2159.1068     57.0398   732  17:06:20     0.0
+  -2159.0868     57.0187   732  17:06:20     0.0
+  -2159.0819     57.0135   732  17:06:20     0.0
+  -2159.0806     57.0118   732  17:06:20     0.0
+  -2159.0803     57.0112   732  17:06:20     0.0
+  -2159.0802     57.0109   732  17:06:20     0.0
+
+Finished on: Wed Mar 14 17:06:20 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:20 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2159.0802     57.0107   732  17:06:20     0.0
+  -2159.0802     57.0107   732  17:06:20     0.0
+  -2159.0802     57.0107   732  17:06:20     0.0
+  -2159.0802     57.0107   732  17:06:20     0.0
+
+Finished on: Wed Mar 14 17:06:20 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:20 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2092.5429     50.6603   723  17:06:20     0.0
+  -2084.7698     53.0660   723  17:06:20     0.0
+  -2081.6905     55.7340   723  17:06:20     0.0
+  -2081.3723     57.2849   723  17:06:20     0.0
+  -2081.3703     57.1946   723  17:06:20     0.0
+  -2081.3703     57.1930   723  17:06:20     0.0
+  -2081.3703     57.1930   723  17:06:20     0.0
+
+Finished on: Wed Mar 14 17:06:20 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:20 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2081.3703     57.1930   723  17:06:20     0.0
+  -2081.3703     57.1930   723  17:06:20     0.0
+  -2081.3703     57.1930   723  17:06:20     0.0
+  -2081.3703     57.1930   723  17:06:20     0.0
+
+Finished on: Wed Mar 14 17:06:20 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:21 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2159.3404     56.8374   732  17:06:21     0.0
+  -2159.1420     56.9005   732  17:06:21     0.0
+  -2158.9564     56.9775   732  17:06:21     0.0
+  -2158.8598     57.0221   732  17:06:21     0.0
+  -2158.8476     57.0002   732  17:06:21     0.0
+  -2158.8456     56.9975   732  17:06:21     0.0
+  -2158.8452     56.9970   732  17:06:21     0.0
+  -2158.8452     56.9969   732  17:06:21     0.0
+
+Finished on: Wed Mar 14 17:06:21 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:21 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2158.8452     56.9969   732  17:06:21     0.0
+  -2158.8452     56.9969   732  17:06:21     0.0
+  -2158.8452     56.9968   732  17:06:21     0.0
+  -2158.8452     56.9968   732  17:06:21     0.0
+
+Finished on: Wed Mar 14 17:06:21 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:21 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2164.5112     56.9542   732  17:06:21     0.0
+  -2164.4958     56.9763   732  17:06:21     0.0
+  -2164.4836     57.0030   732  17:06:21     0.0
+  -2164.4794     57.0223   732  17:06:21     0.0
+  -2164.4791     57.0213   732  17:06:21     0.0
+  -2164.4791     57.0213   732  17:06:21     0.0
+
+Finished on: Wed Mar 14 17:06:21 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:21 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2164.4791     57.0213   732  17:06:21     0.0
+  -2164.4791     57.0213   732  17:06:21     0.0
+  -2164.4791     57.0213   732  17:06:21     0.0
+  -2164.4791     57.0213   732  17:06:21     0.0
+
+Finished on: Wed Mar 14 17:06:21 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:21 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2148.5357     56.8076   732  17:06:21     0.0
+  -2148.4647     56.8616   732  17:06:21     0.0
+  -2148.4028     56.9264   732  17:06:21     0.0
+  -2148.3757     56.9695   732  17:06:21     0.0
+  -2148.3736     56.9612   732  17:06:21     0.0
+  -2148.3734     56.9601   732  17:06:21     0.0
+  -2148.3734     56.9599   732  17:06:21     0.0
+
+Finished on: Wed Mar 14 17:06:21 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:21 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2148.3734     56.9598   732  17:06:22     0.0
+  -2148.3734     56.9598   732  17:06:22     0.0
+  -2148.3734     56.9598   732  17:06:22     0.0
+  -2148.3734     56.9598   732  17:06:22     0.0
+
+Finished on: Wed Mar 14 17:06:22 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:22 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2156.3457     56.9301   732  17:06:22     0.0
+  -2156.2823     56.9483   732  17:06:22     0.0
+  -2156.2347     56.9691   732  17:06:22     0.0
+  -2156.2211     56.9778   732  17:06:22     0.0
+  -2156.2208     56.9726   732  17:06:22     0.0
+  -2156.2208     56.9723   732  17:06:22     0.0
+
+Finished on: Wed Mar 14 17:06:22 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:22 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2156.2207     56.9723   732  17:06:22     0.0
+  -2156.2207     56.9723   732  17:06:22     0.0
+  -2156.2207     56.9722   732  17:06:22     0.0
+  -2156.2207     56.9722   732  17:06:22     0.0
+
+Finished on: Wed Mar 14 17:06:22 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:22 2018
+
+     LogLik         S2      DF      wall     cpu
+  -1830.4775     57.9644   615  17:06:22     0.0
+  -1830.0067     58.5791   615  17:06:22     0.0
+  -1829.6458     59.3374   615  17:06:22     0.0
+  -1829.5199     59.8865   615  17:06:22     0.0
+  -1829.5091     59.8482   615  17:06:22     0.0
+  -1829.5074     59.8441   615  17:06:22     0.0
+  -1829.5072     59.8433   615  17:06:22     0.0
+  -1829.5071     59.8431   615  17:06:22     0.0
+
+Finished on: Wed Mar 14 17:06:22 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:22 2018
+
+     LogLik         S2      DF      wall     cpu
+  -1829.5071     59.8430   615  17:06:22     0.0
+  -1829.5071     59.8430   615  17:06:22     0.0
+  -1829.5071     59.8430   615  17:06:22     0.0
+  -1829.5071     59.8429   615  17:06:22     0.0
+
+Finished on: Wed Mar 14 17:06:22 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:22 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2149.2891     55.7043   732  17:06:22     0.0
+  -2148.5925     56.1315   732  17:06:22     0.0
+  -2148.1037     56.6457   732  17:06:22     0.0
+  -2147.9807     56.9799   732  17:06:22     0.0
+  -2147.9791     56.9425   732  17:06:22     0.0
+  -2147.9790     56.9414   732  17:06:22     0.0
+  -2147.9790     56.9413   732  17:06:22     0.0
+
+Finished on: Wed Mar 14 17:06:22 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:22 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2147.9790     56.9412   732  17:06:23     0.0
+  -2147.9790     56.9412   732  17:06:23     0.0
+  -2147.9790     56.9412   732  17:06:23     0.0
+  -2147.9790     56.9412   732  17:06:23     0.0
+
+Finished on: Wed Mar 14 17:06:23 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:23 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2170.2954     56.9052   732  17:06:23     0.0
+  -2170.2452     56.9345   732  17:06:23     0.0
+  -2170.2065     56.9693   732  17:06:23     0.0
+  -2170.1941     56.9909   732  17:06:23     0.0
+  -2170.1936     56.9866   732  17:06:23     0.0
+  -2170.1935     56.9862   732  17:06:23     0.0
+
+Finished on: Wed Mar 14 17:06:23 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:23 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2170.1935     56.9860   732  17:06:23     0.0
+  -2170.1935     56.9860   732  17:06:23     0.0
+  -2170.1935     56.9860   732  17:06:23     0.0
+  -2170.1935     56.9860   732  17:06:23     0.0
+
+Finished on: Wed Mar 14 17:06:23 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:23 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2143.1400     55.5451   732  17:06:23     0.0
+  -2142.3082     56.0252   732  17:06:23     0.0
+  -2141.7124     56.6057   732  17:06:23     0.0
+  -2141.5548     56.9827   732  17:06:23     0.0
+  -2141.5523     56.9381   732  17:06:23     0.0
+  -2141.5521     56.9373   732  17:06:23     0.0
+  -2141.5521     56.9373   732  17:06:23     0.0
+
+Finished on: Wed Mar 14 17:06:23 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:23 2018
+
+     LogLik         S2      DF      wall     cpu
+  -2141.5521     56.9372   732  17:06:23     0.0
+  -2141.5521     56.9372   732  17:06:23     0.0
+  -2141.5521     56.9372   732  17:06:23     0.0
+  -2141.5521     56.9372   732  17:06:23     0.0
+
+Finished on: Wed Mar 14 17:06:23 2018
+ 
+LogLikelihood Converged 
+> ins2 <- lapply(vars, function(v) {
++   mm <- update(ins, as.formula(sprintf("~ . + %s * pol(time, 2)", v)),
++                data=OST_R_asreml_NS_hr[!is.na(OST_R_asreml_NS_hr[[v]]),])
++   list(model=mm, coef=getcoefp(mm), Wald=WaldChi2(mm, v), fit=getfit(mm, v))
++ })
+ASReml: Wed Mar 14 17:06:23 2018
+
+     LogLik         S2      DF      wall     cpu
+     20.5826      0.1367   732  17:06:23     0.0
+     20.5882      0.1366   732  17:06:23     0.0
+     20.5923      0.1364   732  17:06:23     0.0
+     20.5933      0.1363   732  17:06:23     0.0
+     20.5933      0.1363   732  17:06:23     0.0
+     20.5933      0.1363   732  17:06:23     0.0
+
+Finished on: Wed Mar 14 17:06:23 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:24 2018
+
+     LogLik         S2      DF      wall     cpu
+     20.5933      0.1363   732  17:06:24     0.0
+     20.5933      0.1363   732  17:06:24     0.0
+     20.5933      0.1363   732  17:06:24     0.0
+     20.5933      0.1363   732  17:06:24     0.0
+
+Finished on: Wed Mar 14 17:06:24 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:24 2018
+
+     LogLik         S2      DF      wall     cpu
+     39.1287      0.1273   732  17:06:24     0.0
+     41.2660      0.1304   732  17:06:24     0.0
+     42.4003      0.1342   732  17:06:24     0.0
+     42.5523      0.1367   732  17:06:24     0.0
+     42.5534      0.1365   732  17:06:24     0.0
+     42.5534      0.1365   732  17:06:24     0.0
+     42.5534      0.1365   732  17:06:24     0.0
+
+Finished on: Wed Mar 14 17:06:24 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:24 2018
+
+     LogLik         S2      DF      wall     cpu
+     42.5534      0.1365   732  17:06:24     0.0
+     42.5534      0.1365   732  17:06:24     0.0
+     42.5534      0.1365   732  17:06:24     0.0
+     42.5534      0.1365   732  17:06:24     0.0
+
+Finished on: Wed Mar 14 17:06:24 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:24 2018
+
+     LogLik         S2      DF      wall     cpu
+     41.5824      0.1259   723  17:06:24     0.0
+     48.3248      0.1302   723  17:06:24     0.0
+     50.4626      0.1343   723  17:06:24     0.0
+     50.6726      0.1363   723  17:06:24     0.0
+     50.6746      0.1361   723  17:06:24     0.0
+     50.6747      0.1361   723  17:06:24     0.0
+     50.6747      0.1361   723  17:06:24     0.0
+
+Finished on: Wed Mar 14 17:06:24 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:24 2018
+
+     LogLik         S2      DF      wall     cpu
+     50.6747      0.1361   723  17:06:24     0.0
+     50.6747      0.1361   723  17:06:24     0.0
+     50.6747      0.1361   723  17:06:24     0.0
+     50.6747      0.1361   723  17:06:24     0.0
+
+Finished on: Wed Mar 14 17:06:24 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:24 2018
+
+     LogLik         S2      DF      wall     cpu
+     27.2754      0.1314   732  17:06:24     0.0
+     27.6032      0.1330   732  17:06:24     0.0
+     27.8167      0.1349   732  17:06:24     0.0
+     27.8569      0.1363   732  17:06:24     0.0
+     27.8570      0.1362   732  17:06:25     0.0
+     27.8570      0.1362   732  17:06:25     0.0
+
+Finished on: Wed Mar 14 17:06:25 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:25 2018
+
+     LogLik         S2      DF      wall     cpu
+     27.8570      0.1362   732  17:06:25     0.0
+     27.8570      0.1362   732  17:06:25     0.0
+     27.8570      0.1362   732  17:06:25     0.0
+     27.8570      0.1362   732  17:06:25     0.0
+
+Finished on: Wed Mar 14 17:06:25 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:25 2018
+
+     LogLik         S2      DF      wall     cpu
+     10.8103      0.1357   732  17:06:25     0.0
+     10.8250      0.1359   732  17:06:25     0.0
+     10.8361      0.1361   732  17:06:25     0.0
+     10.8394      0.1362   732  17:06:25     0.0
+     10.8395      0.1362   732  17:06:25     0.0
+     10.8395      0.1362   732  17:06:25     0.0
+
+Finished on: Wed Mar 14 17:06:25 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:25 2018
+
+     LogLik         S2      DF      wall     cpu
+     10.8395      0.1362   732  17:06:25     0.0
+     10.8395      0.1362   732  17:06:25     0.0
+     10.8395      0.1362   732  17:06:25     0.0
+     10.8395      0.1362   732  17:06:25     0.0
+
+Finished on: Wed Mar 14 17:06:25 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:25 2018
+
+     LogLik         S2      DF      wall     cpu
+     24.4363      0.1364   732  17:06:25     0.0
+     24.4530      0.1364   732  17:06:25     0.0
+     24.4652      0.1363   732  17:06:25     0.0
+     24.4683      0.1363   732  17:06:25     0.0
+     24.4683      0.1363   732  17:06:25     0.0
+     24.4683      0.1363   732  17:06:25     0.0
+
+Finished on: Wed Mar 14 17:06:25 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:25 2018
+
+     LogLik         S2      DF      wall     cpu
+     24.4683      0.1363   732  17:06:25     0.0
+     24.4683      0.1363   732  17:06:25     0.0
+     24.4683      0.1363   732  17:06:25     0.0
+     24.4683      0.1363   732  17:06:25     0.0
+
+Finished on: Wed Mar 14 17:06:25 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:25 2018
+
+     LogLik         S2      DF      wall     cpu
+     33.9391      0.1303   732  17:06:26     0.0
+     34.6129      0.1323   732  17:06:26     0.0
+     35.0386      0.1347   732  17:06:26     0.0
+     35.1157      0.1363   732  17:06:26     0.0
+     35.1161      0.1362   732  17:06:26     0.0
+     35.1161      0.1362   732  17:06:26     0.0
+
+Finished on: Wed Mar 14 17:06:26 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:26 2018
+
+     LogLik         S2      DF      wall     cpu
+     35.1161      0.1362   732  17:06:26     0.0
+     35.1161      0.1362   732  17:06:26     0.0
+     35.1161      0.1362   732  17:06:26     0.0
+     35.1161      0.1362   732  17:06:26     0.0
+
+Finished on: Wed Mar 14 17:06:26 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:26 2018
+
+     LogLik         S2      DF      wall     cpu
+     32.4064      0.1250   615  17:06:26     0.0
+     33.4440      0.1268   615  17:06:26     0.0
+     34.0646      0.1288   615  17:06:26     0.0
+     34.1754      0.1301   615  17:06:26     0.0
+     34.1768      0.1300   615  17:06:26     0.0
+     34.1769      0.1300   615  17:06:26     0.0
+     34.1769      0.1300   615  17:06:26     0.0
+
+Finished on: Wed Mar 14 17:06:26 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:26 2018
+
+     LogLik         S2      DF      wall     cpu
+     34.1769      0.1300   615  17:06:26     0.0
+     34.1769      0.1300   615  17:06:26     0.0
+     34.1769      0.1300   615  17:06:26     0.0
+     34.1769      0.1300   615  17:06:26     0.0
+
+Finished on: Wed Mar 14 17:06:26 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:26 2018
+
+     LogLik         S2      DF      wall     cpu
+     33.3607      0.1304   732  17:06:26     0.0
+     35.0577      0.1324   732  17:06:26     0.0
+     36.0703      0.1348   732  17:06:26     0.0 (1 restrained)
+     36.2365      0.1358   732  17:06:26     0.0
+     36.2604      0.1361   732  17:06:26     0.0
+     36.2608      0.1361   732  17:06:26     0.0
+     36.2608      0.1361   732  17:06:26     0.0
+
+Finished on: Wed Mar 14 17:06:26 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:26 2018
+
+     LogLik         S2      DF      wall     cpu
+     36.2608      0.1361   732  17:06:26     0.0
+     36.2608      0.1361   732  17:06:26     0.0
+     36.2608      0.1361   732  17:06:26     0.0
+     36.2608      0.1361   732  17:06:26     0.0
+
+Finished on: Wed Mar 14 17:06:26 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:27 2018
+
+     LogLik         S2      DF      wall     cpu
+     43.4760      0.1221   732  17:06:27     0.0
+     48.8050      0.1273   732  17:06:27     0.0
+     51.2950      0.1334   732  17:06:27     0.0
+     51.5797      0.1371   732  17:06:27     0.0
+     51.5819      0.1368   732  17:06:27     0.0
+     51.5819      0.1368   732  17:06:27     0.0
+     51.5819      0.1368   732  17:06:27     0.0
+
+Finished on: Wed Mar 14 17:06:27 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:27 2018
+
+     LogLik         S2      DF      wall     cpu
+     51.5819      0.1368   732  17:06:27     0.0
+     51.5819      0.1368   732  17:06:27     0.0
+     51.5819      0.1368   732  17:06:27     0.0
+     51.5819      0.1368   732  17:06:27     0.0
+
+Finished on: Wed Mar 14 17:06:27 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:27 2018
+
+     LogLik         S2      DF      wall     cpu
+     38.3583      0.1302   732  17:06:27     0.0
+     39.0895      0.1322   732  17:06:27     0.0
+     39.5371      0.1345   732  17:06:27     0.0
+     39.6123      0.1361   732  17:06:27     0.0
+     39.6127      0.1360   732  17:06:27     0.0
+     39.6127      0.1360   732  17:06:27     0.0
+
+Finished on: Wed Mar 14 17:06:27 2018
+ 
+LogLikelihood Converged 
+ASReml: Wed Mar 14 17:06:27 2018
+
+     LogLik         S2      DF      wall     cpu
+     39.6127      0.1360   732  17:06:27     0.0
+     39.6127      0.1360   732  17:06:27     0.0
+     39.6127      0.1360   732  17:06:27     0.0
+     39.6127      0.1360   732  17:06:27     0.0
+
+Finished on: Wed Mar 14 17:06:27 2018
+ 
+LogLikelihood Converged 
+> 
+> ## combine together for output
+> g <- setNames(c(list(glu1), glu2), c("time_only", vars))
+> i <- setNames(c(list(ins1), ins2), c("time_only", vars))
+> saveRDS(g, "results_glucose.RDS")
+> saveRDS(i, "results_insulin.RDS")
+> 
+> ## and make some csv files
+> g.wald <- do.call(rbind, lapply(g, function(x) data.frame(var=rownames(x$Wald), x$Wald, stringsAsFactors=FALSE)))
+> i.wald <- do.call(rbind, lapply(i, function(x) data.frame(var=rownames(x$Wald), x$Wald, stringsAsFactors=FALSE)))
+> 
+> g.coef <- do.call(rbind, lapply(names(g), function(n) {
++   out <- cbind(var=n, term=rownames(g[[n]]$coef), as.data.frame(g[[n]]$coef), stringsAsFactors=FALSE)
++   rownames(out) <- NULL
++   out
++ }))
+> 
+> i.coef <- do.call(rbind, lapply(names(i), function(n) {
++   out <- cbind(var=n, term=rownames(i[[n]]$coef), as.data.frame(i[[n]]$coef), stringsAsFactors=FALSE)
++   rownames(out) <- NULL
++   out
++ }))
+> 
+> g.fit <- do.call(rbind, lapply(names(g), function(n) {
++   tmp <- as.data.frame(g[[n]]$fit)
++   if(ncol(tmp)==4) { tmp <- data.frame(tmp[,1,drop=FALSE], X=NA, tmp[,2:4]) }
++   stopifnot(ncol(tmp)==5)
++   names(tmp)[2] <- "level"
++   cbind(var=n, tmp, stringsAsFactors=FALSE)
++ }))
+> 
+> i.fit <- do.call(rbind, lapply(names(i), function(n) {
++   tmp <- as.data.frame(i[[n]]$fit)
++   if(ncol(tmp)==4) { tmp <- data.frame(tmp[,1,drop=FALSE], X=NA, tmp[,2:4]) }
++   stopifnot(ncol(tmp)==5)
++   names(tmp)[2] <- "level"
++   cbind(var=n, tmp, stringsAsFactors=FALSE)
++ }))
+> 
+> ## combine together glucose and insulin into one file
+> cc <- function(x) {
++   out <- do.call(rbind, lapply(names(x), function(n) {
++     cbind(response=n, x[[n]], stringsAsFactors=FALSE)
++   }))
++   rownames(out) <- NULL
++   out
++ }
+> 
+> all.wald <- cc(list(glucose=g.wald, insulin=i.wald))
+> all.coef <- cc(list(glucose=g.coef, insulin=i.coef))
+> all.fit <- cc(list(glucose=g.fit, insulin=i.fit))
+> 
+> write.csv(all.wald, "results-wald.csv", na="", row.names=FALSE)
+> write.csv(all.coef, "results-coef.csv", na="", row.names=FALSE)
+> write.csv(all.fit, "results-fit.csv", na="", row.names=FALSE)
+> 
+> proc.time()
+   user  system elapsed 
+  6.863   3.470  10.336 
