@@ -72,11 +72,13 @@ ins1 <- list(model=ins, coef=getcoefp(ins), fit=getfit(ins))
 
 ## add covariates one by one, and save all results
 glu2 <- lapply(vars, function(v) {
-  mm <- update(glu, as.formula(sprintf("~ . + %s * pol(time, 2)", v)))
+  mm <- update(glu, as.formula(sprintf("~ . + %s * pol(time, 2)", v)), 
+               data=OST_R_asreml_NS_hr[!is.na(OST_R_asreml_NS_hr[[v]])])
   list(model=mm, coef=getcoefp(mm), Wald=WaldChi2(mm, v), fit=getfit(mm, v))
 })
 ins2 <- lapply(vars, function(v) {
-  mm <- update(ins, as.formula(sprintf("~ . + %s * pol(time, 2)", v)))
+  mm <- update(ins, as.formula(sprintf("~ . + %s * pol(time, 2)", v)),
+               data=OST_R_asreml_NS_hr[!is.na(OST_R_asreml_NS_hr[[v]])])
   list(model=mm, coef=getcoefp(mm), Wald=WaldChi2(mm, v), fit=getfit(mm, v))
 })
 
