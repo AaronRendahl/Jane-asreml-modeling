@@ -1,3 +1,5 @@
+library(asreml)
+
 OST_R_asreml_NS_hr <- read.csv("OST_R_asreml_NS_hr.csv", check.names=FALSE)
 
 m1 <- asreml(glucose ~ time + time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)) + ~Owner, rcov=~units, maxit=400,  Cfixed=TRUE)
