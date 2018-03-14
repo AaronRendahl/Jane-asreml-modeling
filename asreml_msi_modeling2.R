@@ -32,8 +32,8 @@ getfit <- function(model, var, data=OST_R_asreml_NS_hr) {
     predict(model, classify="time")$predictions$pvals
   } else {
     if(is.numeric(data[[var]])) {
-      m <- mean(data[[var]])
-      s <- sd(data[[var]])
+      m <- mean(data[[var]], na.rm=TRUE)
+      s <- sd(data[[var]], na.rm=TRUE)
       levs <- setNames(list(c(m, m+s)), var)
       predict(model, classify=paste0("time:", var), levels=levs)$predictions$pvals
     } else {
