@@ -2,9 +2,19 @@ library(asreml)
 
 OST_R_asreml_NS_hr <- read.csv("OST_R_asreml_NS_hr.csv", check.names=FALSE)
 OST_R_asreml_NS_hr$Number_ID <- factor(OST_R_asreml_NS_hr$Number_ID)
+OST_R_asreml_NS_hr$logINS <- log(OST_R_asreml_NS_hr$insulin)
 
+## glucose, with Owner
 m1 <- asreml(glucose ~ time + time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)) + ~Owner, rcov=~units, maxit=400,  Cfixed=TRUE)
+## glucose, no Owner
 m1 <- asreml(glucose ~ time + time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)), rcov=~units, maxit=400,  Cfixed=TRUE)
+
+## logINS, no Owner
+m1 <- asreml(logINS ~ time + time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)) , rcov=~units, maxit=400,  Cfixed=TRUE)
+## logINS, no Owner, with Breed
+m1 <- asreml(logINS ~ time + time2 + Breed + Breed:time + Breed:time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)) , rcov=~units, maxit=400,  Cfixed=TRUE)
+## glucose, no Owner, with Breed
+m1 <- asreml(glucose ~ time + time2 + Breed + Breed:time + Breed:time2, data=OST_R_asreml_NS_hr, random=~str(~Number_ID + time:Number_ID + time2:Number_ID, ~us(3):id(Number_ID)) , rcov=~units, maxit=400,  Cfixed=TRUE)
 
 ## previous output
 ## glucose works with farm random intercept and breed fixed effect
