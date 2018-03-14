@@ -52,6 +52,7 @@ OST_R_asreml_NS_hr$logINS <- log(OST_R_asreml_NS_hr$insulin)
 OST_R_asreml_NS_hr$time <- OST_R_asreml_NS_hr$time*60
 OST_R_asreml_NS_hr$time2 <- NULL
 OST_R_asreml_NS_hr$EMS <- substring(OST_R_asreml_NS_hr$EMS, 1, 1)
+OST_R_asreml_NS_hr$TBFM <- as.numeric(as.character(OST_R_asreml_NS_hr$TBFM))
 
 ## these are the covariates we'll add
 vars <- c("SEX", "AGE", "Breed", "Adiponectin", "TG", "NEFA", "Leptin", "TBFM", "SI", "AIRg", "EMS")
