@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
 library(knitr)
 library(dplyr)
 library(ggplot2)
@@ -23,19 +23,35 @@ w %>% kable(digits=c(0,0,2,0,4))
 ### plots
 ```{r}
 d <- read.csv("results-fit.csv", as.is=TRUE)
+d$p <- d$predicted.value
+d$lo <- d$predicted.value - d$standard.error
+d$hi <- d$predicted.value + d$standard.error
+d$p <- ifelse(d$response=="insulin", exp(d$p), d$p)
+d$lo <- ifelse(d$response=="insulin", exp(d$lo), d$lo)
+d$hi <- ifelse(d$response=="insulin", exp(d$hi), d$hi)
+
 ds <- split(d, d[,c("response", "var")])
 
 for(i in seq_along(ds)) {
   foo <- as.numeric(as.character(ds[[i]]$level))
-  if(!any(is.na(foo))) ds[[i]]$level <- paste(round(foo,2))
+  if(!any(is.na(foo))) {
+    #ds[[i]]$level <- paste(round(foo,2))
+    ds[[i]]$level <- factor(ds[[i]]$level, labels=c("mean", "mean + sd"))
+  } else {
+    ds[[i]]$level <- factor(ds[[i]]$level)
+  }
 }
 
 for(i in seq_along(ds)) {
-  p <- ggplot(ds[[i]]) + aes(time, predicted.value, group=level, color=level) + 
+  p <- ggplot(ds[[i]]) + aes(time, p, group=level, color=level) + 
     geom_line() +
-    geom_line(aes(y=predicted.value+standard.error), lty=2) +
-    geom_line(aes(y=predicted.value-standard.error), lty=2) +
-    ggtitle(names(ds)[i])
+    geom_line(aes(y=lo), lty=2) +
+    geom_line(aes(y=hi), lty=2) +
+    ggtitle(names(ds)[i]) + ylab(ds[[i]]$response[1]) +
+    scale_x_continuous(breaks=(0:6)*30)
+  if(nlevels(ds[[i]]$level)<=2) {
+    p <- p + scale_color_manual(values=c("black", "blue"))
+  }
   plot(p)
 }
 ```
