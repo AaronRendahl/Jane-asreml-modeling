@@ -1,0 +1,58 @@
+---
+title: "Data exploration"
+author: "Aaron Rendahl, PhD"
+date: "March 15, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(dplyr)
+```
+
+```{r}
+OST_R_asreml_NS_hr <- read.csv("OST_R_asreml_NS_hr.csv", check.names=FALSE)
+OST_R_asreml_NS_hr$Number_ID <- factor(OST_R_asreml_NS_hr$Number_ID)
+OST_R_asreml_NS_hr$logINS <- log(OST_R_asreml_NS_hr$insulin)
+OST_R_asreml_NS_hr$time <- OST_R_asreml_NS_hr$time*60
+OST_R_asreml_NS_hr$time2 <- NULL
+OST_R_asreml_NS_hr$EMS <- substring(OST_R_asreml_NS_hr$EMS, 1, 1)
+OST_R_asreml_NS_hr$TBFM <- as.numeric(as.character(OST_R_asreml_NS_hr$TBFM))
+
+## these are the covariates we'll add
+vars <- c("SEX", "AGE", "Breed", "Adiponectin", "TG", "NEFA", "Leptin", "TBFM", "SI", "AIRg", "EMS")
+```
+
+```{r}
+# table(OST_R_asreml_NS_hr$AGE)/9
+OST_R_asreml_NS_hr$AGEcat <-  cut(OST_R_asreml_NS_hr$AGE, breaks=c(0,5,10,15,30))
+ggplot(OST_R_asreml_NS_hr) + aes(time, insulin, group=Number_ID) + 
+  scale_y_log10() +
+  geom_line() +
+  facet_wrap(~AGEcat) +
+  stat_smooth(aes(group=1), col="red", se=FALSE)
+```
+
+```{r}
+tmp <- OST_R_asreml_NS_hr %>% group_by(Number_ID, AGE) %>% 
+  summarize(meanlogINS=mean(logINS))
+ggplot(tmp) + aes(AGE, meanlogINS) + stat_smooth(method="lm") + geom_point()
+```
+
+```{r}
+m <- lm(logINS ~ AGE*poly(time, 2), data=OST_R_asreml_NS_hr)
+summary(m)
+xx <- expand.grid(AGE=c(2,5,10,20), time=unique(OST_R_asreml_NS_hr$time))
+xx$p <- predict(m, newdata=xx)
+xx$AGE <- factor(xx$AGE)
+ggplot(xx) + aes(time, p, group=AGE, color=AGE) + geom_line()
+```
+
+```{r}
+m <- lm(logINS ~ AGEcat*poly(time, 2), data=OST_R_asreml_NS_hr)
+summary(m)
+xx <- expand.grid(AGEcat=levels(OST_R_asreml_NS_hr$AGEcat), time=unique(OST_R_asreml_NS_hr$time))
+xx$p <- predict(m, newdata=xx)
+ggplot(xx) + aes(time, p, group=AGEcat, color=AGEcat) + geom_line()
+```
+
