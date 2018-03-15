@@ -32,6 +32,15 @@ d$hi <- ifelse(d$response=="insulin", exp(d$hi), d$hi)
 
 ds <- split(d, d[,c("response", "var")])
 
+## put plots in the starting order
+foo <- unique(d[,c("response", "var")])
+foo$v <- paste(foo$response, foo$var, sep=".")
+stopifnot(foo$v %in% names(ds))
+foo$var <- factor(foo$var, levels=unique(foo$var))
+foo <- foo[order(foo$var, foo$response),]
+ds <- ds[foo$v]
+
+## fix the level names for continuous variables
 for(i in seq_along(ds)) {
   foo <- as.numeric(as.character(ds[[i]]$level))
   if(!any(is.na(foo))) {
@@ -42,6 +51,7 @@ for(i in seq_along(ds)) {
   }
 }
 
+## make the plots
 for(i in seq_along(ds)) {
   p <- ggplot(ds[[i]]) + aes(time, p, group=level, color=level) + 
     geom_line() +
