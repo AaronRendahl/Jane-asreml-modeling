@@ -36,7 +36,7 @@ for(i in seq_along(ds)) {
   foo <- as.numeric(as.character(ds[[i]]$level))
   if(!any(is.na(foo))) {
     #ds[[i]]$level <- paste(round(foo,2))
-    ds[[i]]$level <- factor(ds[[i]]$level, labels=c("mean", "mean + sd"))
+    ds[[i]]$level <- factor(foo, labels=c("mean", "mean + SE"))
   } else {
     ds[[i]]$level <- factor(ds[[i]]$level)
   }
@@ -48,9 +48,13 @@ for(i in seq_along(ds)) {
     geom_line(aes(y=lo), lty=2) +
     geom_line(aes(y=hi), lty=2) +
     ggtitle(names(ds)[i]) + ylab(ds[[i]]$response[1]) +
-    scale_x_continuous(breaks=(0:6)*30)
+    scale_x_continuous(breaks=(0:6)*30) +
+    theme(legend.title=element_blank())
   if(nlevels(ds[[i]]$level)<=2) {
     p <- p + scale_color_manual(values=c("black", "blue"))
+  }
+  if(nlevels(ds[[i]]$level)==1) {
+    p <- p + guides(color=FALSE)
   }
   plot(p)
 }
