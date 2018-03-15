@@ -53,9 +53,10 @@ OST_R_asreml_NS_hr$time <- OST_R_asreml_NS_hr$time*60
 OST_R_asreml_NS_hr$time2 <- NULL
 OST_R_asreml_NS_hr$EMS <- substring(OST_R_asreml_NS_hr$EMS, 1, 1)
 OST_R_asreml_NS_hr$TBFM <- as.numeric(as.character(OST_R_asreml_NS_hr$TBFM))
+OST_R_asreml_NS_hr$AGEcat <-  cut(OST_R_asreml_NS_hr$AGE, breaks=c(0,5,10,15,30))
 
 ## these are the covariates we'll add
-vars <- c("SEX", "AGE", "Breed", "Adiponectin", "TG", "NEFA", "Leptin", "TBFM", "SI", "AIRg", "EMS")
+vars <- c("SEX", "AGE", "AGEcat", "Breed", "Adiponectin", "TG", "NEFA", "Leptin", "TBFM", "SI", "AIRg", "EMS")
 
 ## primary models
 glu <- asreml(glucose ~ pol(time,-2), data=OST_R_asreml_NS_hr, 
