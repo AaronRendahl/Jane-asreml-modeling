@@ -12,6 +12,11 @@ library(dplyr)
 library(ggplot2)
 library(cowplot)
 theme_set(theme_cowplot(font_size=8))
+
+figw <- 8/2.54
+figh <- figw*0.8
+fudge <- 0.352777778
+
 ```
 
 Results from Rob's computer, using R version 3.3.1 (2016-06-21) and asreml 3.0.
@@ -31,6 +36,7 @@ d$hi <- d$predicted.value + d$standard.error
 d$p <- ifelse(d$response=="insulin", exp(d$p), d$p)
 d$lo <- ifelse(d$response=="insulin", exp(d$lo), d$lo)
 d$hi <- ifelse(d$response=="insulin", exp(d$hi), d$hi)
+d$var0 <- d$var
 d$var[d$var=="AGE"] <- "Age"
 d$var[d$var=="SEX"] <- "Sex"
 d$var[d$var=="EMS"] <- "IR"
@@ -88,7 +94,6 @@ ps <- lapply(seq_along(ds), function(i) {
 names(ps) <- names(ds)
 
 ## add labels to Breed plots
-fudge <- 0.352777778
 tmp <- subset(ds$insulin.Breed, time==60, select=c(level, p, time))
 ps$insulin.Breed <- ps$insulin.Breed + 
   geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE, size=8*fudge)
@@ -97,20 +102,13 @@ ps$glucose.Breed <- ps$glucose.Breed +
   geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE, size=8*fudge)
 ```
 
-```{r, fig.width=4, fig.height=3.2}
-for(p in ps) plot(p)
-```
 
-
-```{r, fig.show="hide"}
+```{r, fig.width=figw, fig.height=figh}
 units <- as.data.frame(t(matrix(c(
 "Age", "years",
 "Leptin", "ng/mL",
 "AIRg", "[mU/L]/min"), nrow=2)), stringsAsFactors=FALSE)
 names(units) <- c("v", "u")
-
-# Adi: (mu) g/mL
-# SI: (L/min/mU)/10^4
 
 for(i in seq_along(ds)) {
   var <- ds[[i]]$var[1]
@@ -119,8 +117,14 @@ for(i in seq_along(ds)) {
     if(var %in% units$v) { # if easy units
       my.labs <- sprintf("%s = %s %s (%s)", var, levs, units$u[units$v==var], c("mean", "mean + SD"))
     } else { # custom units
-      my.labs <- sprintf("%s = %s %s (%s)", var, levs, "X", c("mean", "mean + SD"))
-      #  my.labs <- list(bquote(==.(levs[1])), bquote(beta==.(levs[2])))
+      if(var=="HMW Adiponectin") {
+        my.labs <- list(bquote(.(var) == .(levs[1])~paste(mu, "g/mL")~"(mean)"), 
+                        bquote(.(var) == .(levs[2])~paste(mu, "g/mL")~"(mean + SD)"))
+      }
+      if(var=="SI") {
+        my.labs <- list(bquote(.(var) == .(levs[1])~(L/min/mU)/10^4~.("(mean)")), 
+                        bquote(.(var) == .(levs[2])~(L/min/mU)/10^4~.("(mean + SD)")))        
+      }
     }
   } else { # not numeric
     my.labs <- paste(var, levs)
@@ -145,26 +149,47 @@ for(i in grep("insulin", names(ps))) ps[[i]] <- ps[[i]] + ylim(yi)
 for(i in grep("glucose", names(ps))) ps[[i]] <- ps[[i]] + ylim(yg)
 ```
 
+```{r}
+ps0 <- ps
+```
+
+```{r}
+ps <- ps0
+
+## add p-values
+w$pval <- ifelse(w$P<0.0001, "p < 0.0001", paste("p = ", formatC(w$P, 2, format="g", flag="#")))
+y2 <- 0.89
+y5 <- 0.7
+
+for(i in seq_along(ps)) {
+  var0 <- ds[[i]]$var0[1]
+  res <- ds[[i]]$response[1]
+  pv <- w$pval[w$response==res & w$var==var0]
+  nlev <- nlevels(ds[[i]]$level)
+  ym <- if(res=="insulin") yi else yg
+  yp <- if(nlev==5) y5 else y2
+  yy <- ym[1] + diff(ym)*yp
+  ps[[i]] <- ps[[i]] + annotate("text", x=5, y=yy, label=pv, size=8*fudge, hjust=0)
+}
+```
+
 
 ```{r}
 ## output to files
 
-w <- 8/2.54
-h <- w*0.8
-
 vv <- outer(c("insulin", "glucose"), v1, paste, sep=".")
 pp <- cowplot::plot_grid(plotlist=ps[vv], ncol=2, labels="AUTO")
-cowplot::save_plot("p1.pdf", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h)
-cowplot::save_plot("p1.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h, compression="lzw")
+cowplot::save_plot("p1.pdf", pp, base_width=nrow(vv)*figw, base_height=ncol(vv)*figh)
+cowplot::save_plot("p1.tiff", pp, base_width=nrow(vv)*figw, base_height=ncol(vv)*figh, compression="lzw")
 
 vv <- outer(c("insulin", "glucose"), v2, paste, sep=".")
 pp <- cowplot::plot_grid(plotlist=ps[vv], ncol=2, labels="AUTO")
-cowplot::save_plot("p2.pdf", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h)
-cowplot::save_plot("p2.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h, compression="lzw")
+cowplot::save_plot("p2.pdf", pp, base_width=nrow(vv)*figw, base_height=ncol(vv)*figh)
+cowplot::save_plot("p2.tiff", pp, base_width=nrow(vv)*figw, base_height=ncol(vv)*figh, compression="lzw")
 
 vv <- outer(c("insulin", "glucose"), v3, paste, sep=".")
 pp <- cowplot::plot_grid(plotlist=ps[vv], ncol=2, labels="AUTO")
-cowplot::save_plot("p3.pdf", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h)
-cowplot::save_plot("p3.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h, compression="lzw")
+cowplot::save_plot("p3.pdf", pp, base_width=nrow(vv)*figw, base_height=ncol(vv)*figh)
+cowplot::save_plot("p3.tiff", pp, base_width=nrow(vv)*figw, base_height=ncol(vv)*figh, compression="lzw")
 
 ```
