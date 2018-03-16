@@ -157,7 +157,7 @@ ps0 <- ps
 ps <- ps0
 
 ## add p-values
-w$pval <- ifelse(w$P<0.0001, "p < 0.0001", paste("p = ", formatC(w$P, 2, format="g", flag="#")))
+w$pval <- ifelse(w$P<0.001, "P<0.001", paste0("P=", formatC(w$P, 2, format="g", flag="#")))
 y2 <- 0.89
 y5 <- 0.7
 
