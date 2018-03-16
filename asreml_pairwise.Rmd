@@ -1,0 +1,47 @@
+---
+title: "asreml pairwise breed tests for Jane Manfredi"
+author: "Aaron Rendahl, PhD"
+date: "March 14, 2018"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
+library(knitr)
+library(dplyr)
+```  
+
+## pairwise breed tests
+Get saved model and use code from WaldChi2 function in asreml script to get coefficients and covariance matrix.
+
+Next need to compute contrasts of interest, test using chisquared test, and correct for multiple comparisons...
+
+Here are the coefficients and covariance matrices.
+
+```{r, echo=FALSE}
+getcc <- function(model) {
+  covariance_matrix <- diag(length(model$coefficients$fixed))
+  covariance_matrix[upper.tri(covariance_matrix, diag=TRUE)] <- model$Cfixed
+  covariance_matrix[lower.tri(covariance_matrix)] <- t(covariance_matrix)[lower.tri(t(covariance_matrix))]
+  colnames(covariance_matrix) <- rownames(covariance_matrix) <- names(model$coefficients$fixed)
+  terms <- rowSums(covariance_matrix)!=0
+  list(b=model$coefficients$fixed[terms], 
+       Sigma = covariance_matrix[terms, terms]  )
+}
+
+ccg <- getcc(readRDS("results_glucose.RDS")$Breed$model)
+cci <- getcc(readRDS("results_insulin.RDS")$Breed$model)
+```
+
+### for glucose
+```{r}
+ccg$b %>% kable(digits=2)
+ccg$Sigma %>% kable(digits=2)
+```
+
+### for insulin
+```{r}
+cci$b %>% kable(digits=2)
+cci$Sigma %>% kable(digits=2)
+```
+

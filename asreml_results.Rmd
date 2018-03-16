@@ -50,20 +50,19 @@ foo$var <- factor(foo$var, levels=unique(foo$var))
 foo <- foo[order(foo$var, foo$response),]
 ds <- ds[foo$v]
 
-## fix the level names for continuous variables
+## for continuous variables, make level names numeric again
+## add new column to say if numeric
+level.numeric <- rep(FALSE, length(ds))
+names(level.numeric) <- names(ds)
 for(i in seq_along(ds)) {
   levs <- levels(ds[[i]]$level)
   foo <- as.numeric(levs)
-  v <- ds[[i]]$var[1]
   if(!any(is.na(foo))) {
+    level.numeric[i] <- TRUE
     foo <- data.frame(levs=levs, num=foo, round=round(foo, 2))
     foo <- foo[order(foo$num),]
-    foo$text <- c("mean", "mean + SD")
-    foo$labs <- sprintf("%s (%s)", foo$text, foo$round)
-    ds[[i]]$level <- factor(ds[[i]]$level, levels=foo$levs, labels=foo$labs)
+    ds[[i]]$level <- factor(ds[[i]]$level, levels=foo$levs, labels=foo$round)
   }
-  ds[[i]]$level.orig <- ds[[i]]$level
-  levels(ds[[i]]$level) <- paste(v, levels(ds[[i]]$level))
 }
 
 ## make the plots
@@ -90,17 +89,47 @@ names(ps) <- names(ds)
 
 ## add labels to Breed plots
 fudge <- 0.352777778
-tmp <- subset(ds$insulin.Breed, time==60, select=c(level.orig, p, time))
+tmp <- subset(ds$insulin.Breed, time==60, select=c(level, p, time))
 ps$insulin.Breed <- ps$insulin.Breed + 
-  geom_text(aes(x=time, y=p, label=level.orig), data=tmp, inherit.aes=FALSE, size=8*fudge)
-tmp <- subset(ds$glucose.Breed, time==120, select=c(level.orig, p, time))
+  geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE, size=8*fudge)
+tmp <- subset(ds$glucose.Breed, time==120, select=c(level, p, time))
 ps$glucose.Breed <- ps$glucose.Breed + 
-  geom_text(aes(x=time, y=p, label=level.orig), data=tmp, inherit.aes=FALSE, size=8*fudge)
+  geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE, size=8*fudge)
 ```
 
 ```{r, fig.width=4, fig.height=3.2}
 for(p in ps) plot(p)
 ```
+
+
+```{r, fig.show="hide"}
+units <- as.data.frame(t(matrix(c(
+"Age", "years",
+"Leptin", "ng/mL",
+"AIRg", "[mU/L]/min"), nrow=2)), stringsAsFactors=FALSE)
+names(units) <- c("v", "u")
+
+# Adi: (mu) g/mL
+# SI: (L/min/mU)/10^4
+
+for(i in seq_along(ds)) {
+  var <- ds[[i]]$var[1]
+  levs <- levels(ds[[i]]$level)
+  if(level.numeric[i]) { # if numeric
+    if(var %in% units$v) { # if easy units
+      my.labs <- sprintf("%s = %s %s (%s)", var, levs, units$u[units$v==var], c("mean", "mean + SD"))
+    } else { # custom units
+      my.labs <- sprintf("%s = %s %s (%s)", var, levs, "X", c("mean", "mean + SD"))
+      #  my.labs <- list(bquote(==.(levs[1])), bquote(beta==.(levs[2])))
+    }
+  } else { # not numeric
+    my.labs <- paste(var, levs)
+  }
+  ps[[i]] <- ps[[i]] + scale_linetype_manual(values=seq_along(levs), breaks=levs, labels=my.labs)
+  plot(ps[[i]]) ## need to run this, otherwise have lazy loading problem
+}
+```
+
 
 ```{r}
 ## make y-axes consistent
@@ -139,38 +168,3 @@ cowplot::save_plot("p3.pdf", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h)
 cowplot::save_plot("p3.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h, compression="lzw")
 
 ```
-
-## pairwise breed tests
-Get saved model and use code from WaldChi2 function in asreml script to get coefficients and covariance matrix.
-
-Next need to compute contrasts of interest, test using chisquared test, and correct for multiple comparisons...
-
-Here are the coefficients and covariance matrices.
-
-```{r, echo=FALSE}
-getcc <- function(model) {
-  covariance_matrix <- diag(length(model$coefficients$fixed))
-  covariance_matrix[upper.tri(covariance_matrix, diag=TRUE)] <- model$Cfixed
-  covariance_matrix[lower.tri(covariance_matrix)] <- t(covariance_matrix)[lower.tri(t(covariance_matrix))]
-  colnames(covariance_matrix) <- rownames(covariance_matrix) <- names(model$coefficients$fixed)
-  terms <- rowSums(covariance_matrix)!=0
-  list(b=model$coefficients$fixed[terms], 
-       Sigma = covariance_matrix[terms, terms]  )
-}
-
-ccg <- getcc(readRDS("results_glucose.RDS")$Breed$model)
-cci <- getcc(readRDS("results_insulin.RDS")$Breed$model)
-```
-
-### for glucose
-```{r}
-ccg$b %>% kable(digits=2)
-ccg$Sigma %>% kable(digits=2)
-```
-
-### for insulin
-```{r}
-cci$b %>% kable(digits=2)
-cci$Sigma %>% kable(digits=2)
-```
-
