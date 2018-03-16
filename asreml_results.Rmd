@@ -6,10 +6,12 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE)
 library(knitr)
 library(dplyr)
 library(ggplot2)
+library(cowplot)
+theme_set(theme_cowplot(font_size=8))
 ```
 
 Results from Rob's computer, using R version 3.3.1 (2016-06-21) and asreml 3.0.
@@ -21,7 +23,7 @@ w %>% kable(digits=c(0,0,2,0,4))
 ```
 
 ### plots
-```{r}
+```{r, fig.width=4, fig.height=3.2}
 d <- read.csv("results-fit.csv", as.is=TRUE)
 d$p <- d$predicted.value
 d$lo <- d$predicted.value - d$standard.error
@@ -29,8 +31,16 @@ d$hi <- d$predicted.value + d$standard.error
 d$p <- ifelse(d$response=="insulin", exp(d$p), d$p)
 d$lo <- ifelse(d$response=="insulin", exp(d$lo), d$lo)
 d$hi <- ifelse(d$response=="insulin", exp(d$hi), d$hi)
+d$var[d$var=="AGE"] <- "Age"
+d$var[d$var=="SEX"] <- "Sex"
+d$var[d$var=="EMS"] <- "IR"
+d$var[d$var=="Adiponectin"] <- "HMW Adiponectin"
+d$level[d$level=="n"] <- "No"
+d$level[d$level=="y"] <- "Yes"
+d$level <- factor(d$level)
 
 ds <- split(d, d[,c("response", "var")])
+ds <- lapply(ds, droplevels)
 
 ## put plots in the starting order
 foo <- unique(d[,c("response", "var")])
@@ -42,13 +52,18 @@ ds <- ds[foo$v]
 
 ## fix the level names for continuous variables
 for(i in seq_along(ds)) {
-  foo <- as.numeric(as.character(ds[[i]]$level))
+  levs <- levels(ds[[i]]$level)
+  foo <- as.numeric(levs)
+  v <- ds[[i]]$var[1]
   if(!any(is.na(foo))) {
-    #ds[[i]]$level <- paste(round(foo,2))
-    ds[[i]]$level <- factor(foo, labels=c("mean", "mean + SE"))
-  } else {
-    ds[[i]]$level <- factor(ds[[i]]$level)
+    foo <- data.frame(levs=levs, num=foo, round=round(foo, 2))
+    foo <- foo[order(foo$num),]
+    foo$text <- c("mean", "mean + SD")
+    foo$labs <- sprintf("%s (%s)", foo$text, foo$round)
+    ds[[i]]$level <- factor(ds[[i]]$level, levels=foo$levs, labels=foo$labs)
   }
+  ds[[i]]$level.orig <- ds[[i]]$level
+  levels(ds[[i]]$level) <- paste(v, levels(ds[[i]]$level))
 }
 
 ## make the plots
@@ -57,44 +72,88 @@ ps <- lapply(seq_along(ds), function(i) {
     aes(time, p, ymin=lo, ymax=hi, group=level, linetype=level) + 
     geom_ribbon(alpha=0.3, linetype=0) +
     geom_line() +
-    ggtitle(names(ds)[i]) + ylab(ds[[i]]$response[1]) +
+    #ggtitle(names(ds)[i]) + 
     scale_x_continuous(breaks=(0:6)*30, expand=c(0,0)) +
-    theme_classic() +
-    theme(legend.title=element_blank())
+    xlab("Minutes") +
+    #theme_classic() +
+    theme(legend.title=element_blank(), 
+          legend.position=c(-0.01, 1.07), 
+          legend.justification=c(0, 1),
+          legend.key.height = unit(0.6, "line"))
+    #theme(legend.title=element_text(ds[[i]]$var[1]), legend.position=c(0.1, 0.9))
   if(nlevels(ds[[i]]$level)==1) {
     p <- p + guides(linetype=FALSE)
   }
-  p
+  rr <- ds[[i]]$response[1]
+  if(rr=="insulin") p <- p + ylab(expression(paste("Insulin (",mu,"IU/mL)")))
+  if(rr=="glucose") p <- p + ylab("Glucose (mg/dL)")
+  p <- p + theme(plot.margin = unit(c(4,8,4,4), "pt"))
 })
 names(ps) <- names(ds)
 
-tmp <- subset(ds$insulin.Breed, time==60, select=c(level, p, time))
+fudge <- 0.352777778
+
+tmp <- subset(ds$insulin.Breed, time==60, select=c(level.orig, p, time))
 ps$insulin.Breed <- ps$insulin.Breed + 
-  geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE)
+  geom_text(aes(x=time, y=p, label=level.orig), data=tmp, inherit.aes=FALSE, size=8*fudge)
 
-tmp <- subset(ds$glucose.Breed, time==120, select=c(level, p, time))
+tmp <- subset(ds$glucose.Breed, time==120, select=c(level.orig, p, time))
 ps$glucose.Breed <- ps$glucose.Breed + 
-  geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE)
-
+  geom_text(aes(x=time, y=p, label=level.orig), data=tmp, inherit.aes=FALSE, size=8*fudge)
 
 for(p in ps) plot(p)
-
-
-## make the plots
-# for(i in seq_along(ds)) {
-#   p <- ggplot(ds[[i]]) + aes(time, p, group=level, color=level) + 
-#     geom_line() +
-#     geom_line(aes(y=lo), lty=2) +
-#     geom_line(aes(y=hi), lty=2) +
-#     ggtitle(names(ds)[i]) + ylab(ds[[i]]$response[1]) +
-#     scale_x_continuous(breaks=(0:6)*30) +
-#     theme(legend.title=element_blank())
-#   if(nlevels(ds[[i]]$level)<=2) {
-#     p <- p + scale_color_manual(values=c("black", "blue"))
-#   }
-#   if(nlevels(ds[[i]]$level)==1) {
-#     p <- p + guides(color=FALSE)
-#   }
-#   plot(p)
-# }
 ```
+
+```{r}
+v1 <- c("Age", "Sex", "Breed")
+v2 <- c("IR", "SI", "AIRg")
+v3 <- c("HMW Adiponectin", "Leptin")
+vars <- c(v1, v2, v3)
+foo <- subset(d, response=="insulin" & var %in% vars)
+yi <- range(c(foo$lo, foo$hi))
+foo <- subset(d, response=="glucose" & var %in% vars)
+yg <- range(c(foo$lo, foo$hi))
+for(i in grep("insulin", names(ps))) ps[[i]] <- ps[[i]] + ylim(yi)
+for(i in grep("glucose", names(ps))) ps[[i]] <- ps[[i]] + ylim(yg)
+```
+
+
+```{r}
+w <- 8/2.54
+h <- w*0.8
+
+vv <- outer(c("insulin", "glucose"), v1, paste, sep=".")
+pp <- cowplot::plot_grid(plotlist=ps[vv], ncol=2, labels="AUTO")
+cowplot::save_plot("p1.pdf", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h)
+cowplot::save_plot("p1.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h, compression="lzw")
+
+vv <- outer(c("insulin", "glucose"), v2, paste, sep=".")
+pp <- cowplot::plot_grid(plotlist=ps[vv], ncol=2, labels="AUTO")
+cowplot::save_plot("p2.pdf", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h)
+cowplot::save_plot("p2.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h, compression="lzw")
+
+vv <- outer(c("insulin", "glucose"), v3, paste, sep=".")
+pp <- cowplot::plot_grid(plotlist=ps[vv], ncol=2, labels="AUTO")
+cowplot::save_plot("p3.pdf", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h)
+cowplot::save_plot("p3.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h, compression="lzw")
+
+```
+
+### pairwise breed tests
+Get saved model and use code from WaldChi2 function in asreml script to get coefficients and covariance matrix.
+```{r, echo=TRUE}
+getcc <- function(model) {
+  covariance_matrix <- diag(length(model$coefficients$fixed))
+  covariance_matrix[upper.tri(covariance_matrix, diag=TRUE)] <- model$Cfixed
+  covariance_matrix[lower.tri(covariance_matrix)] <- t(covariance_matrix)[lower.tri(t(covariance_matrix))]
+  colnames(covariance_matrix) <- rownames(covariance_matrix) <- names(model$coefficients$fixed)
+  terms <- rowSums(covariance_matrix)!=0
+  list(b=model$coefficients$fixed[terms], 
+       Sigma = covariance_matrix[terms, terms]  )
+}
+
+getcc(readRDS("results_glucose.RDS")$Breed$model)
+getcc(readRDS("results_insulin.RDS")$Breed$model)
+```
+
+Now need to compute contrasts of interest, test using chisquared test, and correct for multiple comparisons
