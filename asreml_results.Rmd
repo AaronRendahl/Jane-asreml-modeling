@@ -52,20 +52,49 @@ for(i in seq_along(ds)) {
 }
 
 ## make the plots
-for(i in seq_along(ds)) {
-  p <- ggplot(ds[[i]]) + aes(time, p, group=level, color=level) + 
+ps <- lapply(seq_along(ds), function(i) {
+  p <- ggplot(ds[[i]]) + 
+    aes(time, p, ymin=lo, ymax=hi, group=level, linetype=level) + 
+    geom_ribbon(alpha=0.3, linetype=0) +
     geom_line() +
-    geom_line(aes(y=lo), lty=2) +
-    geom_line(aes(y=hi), lty=2) +
     ggtitle(names(ds)[i]) + ylab(ds[[i]]$response[1]) +
-    scale_x_continuous(breaks=(0:6)*30) +
+    scale_x_continuous(breaks=(0:6)*30, expand=c(0,0)) +
+    theme_classic() +
     theme(legend.title=element_blank())
-  if(nlevels(ds[[i]]$level)<=2) {
-    p <- p + scale_color_manual(values=c("black", "blue"))
-  }
   if(nlevels(ds[[i]]$level)==1) {
-    p <- p + guides(color=FALSE)
+    p <- p + guides(linetype=FALSE)
   }
-  plot(p)
-}
+  p
+})
+names(ps) <- names(ds)
+
+tmp <- subset(ds$insulin.Breed, time==60, select=c(level, p, time))
+ps$insulin.Breed <- ps$insulin.Breed + 
+  geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE)
+
+tmp <- subset(ds$glucose.Breed, time==120, select=c(level, p, time))
+ps$glucose.Breed <- ps$glucose.Breed + 
+  geom_text(aes(x=time, y=p, label=level), data=tmp, inherit.aes=FALSE)
+
+
+for(p in ps) plot(p)
+
+
+## make the plots
+# for(i in seq_along(ds)) {
+#   p <- ggplot(ds[[i]]) + aes(time, p, group=level, color=level) + 
+#     geom_line() +
+#     geom_line(aes(y=lo), lty=2) +
+#     geom_line(aes(y=hi), lty=2) +
+#     ggtitle(names(ds)[i]) + ylab(ds[[i]]$response[1]) +
+#     scale_x_continuous(breaks=(0:6)*30) +
+#     theme(legend.title=element_blank())
+#   if(nlevels(ds[[i]]$level)<=2) {
+#     p <- p + scale_color_manual(values=c("black", "blue"))
+#   }
+#   if(nlevels(ds[[i]]$level)==1) {
+#     p <- p + guides(color=FALSE)
+#   }
+#   plot(p)
+# }
 ```
