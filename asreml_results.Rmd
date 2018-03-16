@@ -23,7 +23,7 @@ w %>% kable(digits=c(0,0,2,0,4))
 ```
 
 ### plots
-```{r, fig.width=4, fig.height=3.2}
+```{r}
 d <- read.csv("results-fit.csv", as.is=TRUE)
 d$p <- d$predicted.value
 d$lo <- d$predicted.value - d$standard.error
@@ -72,15 +72,12 @@ ps <- lapply(seq_along(ds), function(i) {
     aes(time, p, ymin=lo, ymax=hi, group=level, linetype=level) + 
     geom_ribbon(alpha=0.3, linetype=0) +
     geom_line() +
-    #ggtitle(names(ds)[i]) + 
     scale_x_continuous(breaks=(0:6)*30, expand=c(0,0)) +
     xlab("Minutes") +
-    #theme_classic() +
     theme(legend.title=element_blank(), 
           legend.position=c(-0.01, 1.07), 
           legend.justification=c(0, 1),
           legend.key.height = unit(0.6, "line"))
-    #theme(legend.title=element_text(ds[[i]]$var[1]), legend.position=c(0.1, 0.9))
   if(nlevels(ds[[i]]$level)==1) {
     p <- p + guides(linetype=FALSE)
   }
@@ -91,20 +88,22 @@ ps <- lapply(seq_along(ds), function(i) {
 })
 names(ps) <- names(ds)
 
+## add labels to Breed plots
 fudge <- 0.352777778
-
 tmp <- subset(ds$insulin.Breed, time==60, select=c(level.orig, p, time))
 ps$insulin.Breed <- ps$insulin.Breed + 
   geom_text(aes(x=time, y=p, label=level.orig), data=tmp, inherit.aes=FALSE, size=8*fudge)
-
 tmp <- subset(ds$glucose.Breed, time==120, select=c(level.orig, p, time))
 ps$glucose.Breed <- ps$glucose.Breed + 
   geom_text(aes(x=time, y=p, label=level.orig), data=tmp, inherit.aes=FALSE, size=8*fudge)
+```
 
+```{r, fig.width=4, fig.height=3.2}
 for(p in ps) plot(p)
 ```
 
 ```{r}
+## make y-axes consistent
 v1 <- c("Age", "Sex", "Breed")
 v2 <- c("IR", "SI", "AIRg")
 v3 <- c("HMW Adiponectin", "Leptin")
@@ -119,6 +118,8 @@ for(i in grep("glucose", names(ps))) ps[[i]] <- ps[[i]] + ylim(yg)
 
 
 ```{r}
+## output to files
+
 w <- 8/2.54
 h <- w*0.8
 
@@ -139,9 +140,14 @@ cowplot::save_plot("p3.tiff", pp, base_width=nrow(vv)*w, base_height=ncol(vv)*h,
 
 ```
 
-### pairwise breed tests
+## pairwise breed tests
 Get saved model and use code from WaldChi2 function in asreml script to get coefficients and covariance matrix.
-```{r, echo=TRUE}
+
+Next need to compute contrasts of interest, test using chisquared test, and correct for multiple comparisons...
+
+Here are the coefficients and covariance matrices.
+
+```{r, echo=FALSE}
 getcc <- function(model) {
   covariance_matrix <- diag(length(model$coefficients$fixed))
   covariance_matrix[upper.tri(covariance_matrix, diag=TRUE)] <- model$Cfixed
@@ -152,8 +158,19 @@ getcc <- function(model) {
        Sigma = covariance_matrix[terms, terms]  )
 }
 
-getcc(readRDS("results_glucose.RDS")$Breed$model)
-getcc(readRDS("results_insulin.RDS")$Breed$model)
+ccg <- getcc(readRDS("results_glucose.RDS")$Breed$model)
+cci <- getcc(readRDS("results_insulin.RDS")$Breed$model)
 ```
 
-Now need to compute contrasts of interest, test using chisquared test, and correct for multiple comparisons
+### for glucose
+```{r}
+ccg$b %>% kable(digits=2)
+ccg$Sigma %>% kable(digits=2)
+```
+
+### for insulin
+```{r}
+cci$b %>% kable(digits=2)
+cci$Sigma %>% kable(digits=2)
+```
+
